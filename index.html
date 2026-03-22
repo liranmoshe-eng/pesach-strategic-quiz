@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="he" dir="rtl" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>חידון פסח אסטרטגי</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Rubik', sans-serif; }
+    .card {
+      perspective: 1000px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    .card:hover { transform: scale(1.05); }
+    .card-inner {
+      transition: transform 0.3s ease;
+      transform-style: preserve-3d;
+    }
+    .card.flipped .card-inner { transform: rotateY(180deg); }
+    .card-front, .card-back {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    .card-back { transform: rotateY(180deg); }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    .shake { animation: shake 0.3s ease-in-out; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+    .pulse { animation: pulse 0.3s ease-in-out; }
+  </style>
+</head>
+<body class="h-full bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100">
+
+  <!-- Setup Screen -->
+  <div id="setupScreen" class="fixed inset-0 bg-gradient-to-br from-amber-100 via-yellow-50 to-orange-100 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-7">
+      <div class="text-center mb-6">
+        <div class="text-5xl mb-2">🏺</div>
+        <h2 class="text-2xl font-bold text-amber-900">חידון פסח אסטרטגי</h2>
+        <p class="text-amber-600 text-sm mt-1">הוסיפו את השחקנים</p>
+      </div>
+
+      <div class="flex gap-2 mb-4">
+        <button onclick="addPlayer()" class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl transition-all shadow-sm flex-shrink-0">
+          + הוסף
+        </button>
+        <input id="newPlayerName" type="text" placeholder="שם השחקן..." maxlength="14" onkeydown="if(event.key==='Enter') addPlayer()"
+          class="flex-1 border-2 border-amber-200 rounded-xl px-3 py-2 text-right focus:outline-none focus:border-amber-400 text-base" />
+      </div>
+
+      <div id="playersList" class="space-y-2 mb-5 min-h-[2rem]"></div>
+
+      <button id="startBtn" onclick="startGame()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl text-lg transition-all shadow-md hidden">
+        🎮 התחילו לשחק!
+      </button>
+
+      <div class="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200 text-sm text-amber-800">
+        <p class="font-bold mb-1">🎯 איך מנצחים?</p>
+        <p>ענו נכון על שאלות וצבעו קלפים. ניצחון — רצף רציף <strong>מקצה לקצה</strong> של הלוח (אופקי או אנכי)!</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="app" class="h-full w-full overflow-auto p-4">
+    <!-- Header -->
+    <div class="text-center mb-3 relative">
+      <h1 class="text-3xl font-bold text-amber-900 mb-1">🏺 חידון פסח אסטרטגי 🏺</h1>
+      <button id="midGameRestartBtn" onclick="confirmRestart()" class="hidden absolute left-0 top-0 bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-3 py-1.5 rounded-xl text-sm border-2 border-amber-300 transition-all">
+        🔄 התחל מחדש
+      </button>
+    </div>
+
+    <!-- Turn Indicator -->
+    <div id="turnBar" class="max-w-2xl mx-auto mb-3 rounded-xl p-3 text-center font-bold text-white text-lg shadow-md hidden"></div>
+
+    <!-- Players scoreboard -->
+    <div id="scoreboard" class="max-w-2xl mx-auto mb-3 flex gap-2 justify-center flex-wrap hidden"></div>
+
+    <!-- Game Grid -->
+    <div id="gameGrid" class="grid grid-cols-6 gap-2 max-w-2xl mx-auto mb-4"></div>
+
+    <!-- Question Modal -->
+    <div id="questionModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative">
+        <div id="questionPlayerBadge" class="text-center mb-3"></div>
+        <div class="text-center mb-4">
+          <span class="text-4xl mb-2 block" id="questionEmoji">🏺</span>
+          <p id="questionText" class="text-lg font-medium text-gray-800 leading-relaxed"></p>
+        </div>
+        <div id="answersContainer" class="space-y-2"></div>
+        <button id="closeModal" class="absolute top-3 left-3 text-gray-400 hover:text-gray-600 text-2xl">×</button>
+      </div>
+    </div>
+
+    <!-- Correct Answer Modal -->
+    <div id="correctModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden p-4">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full">
+        <div class="text-6xl mb-3">🎉</div>
+        <h3 class="text-xl font-bold text-gray-800 mb-1">תשובה נכונה!</h3>
+        <p id="correctPlayerName" class="text-lg font-bold mb-1"></p>
+        <p class="text-gray-500 text-sm">זכתה בקלף!</p>
+      </div>
+    </div>
+
+    <!-- Wrong Answer Feedback -->
+    <div id="wrongFeedback" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden p-4">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 text-center">
+        <div class="text-6xl mb-3">❌</div>
+        <h3 class="text-xl font-bold text-red-600">תשובה שגויה</h3>
+        <p id="nextPlayerMsg" class="text-gray-500 mt-2 font-medium"></p>
+      </div>
+    </div>
+
+    <!-- Win Modal -->
+    <div id="winModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full">
+        <div class="text-6xl mb-3">🏆</div>
+        <h3 id="winTitle" class="text-3xl font-bold mb-2"></h3>
+        <p id="winName" class="text-xl font-bold mb-1"></p>
+        <p class="text-gray-500 text-sm mb-2">יצרת רצף מקצה לקצה!</p>
+        <p class="text-amber-600 font-bold mb-6">חג פסח שמח! 🌾</p>
+        <button onclick="doRestart()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all hover:scale-105 shadow-md">
+          🎮 משחק חדש!
+        </button>
+      </div>
+    </div>
+
+    <!-- Confirm Restart Modal -->
+    <div id="confirmRestartModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden p-4">
+      <div class="bg-white rounded-2xl shadow-2xl p-7 text-center max-w-sm w-full">
+        <div class="text-5xl mb-3">🔄</div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">להתחיל מחדש?</h3>
+        <p class="text-gray-500 mb-5 text-sm">ההתקדמות הנוכחית תימחק</p>
+        <div class="flex gap-3 justify-center">
+          <button onclick="doRestart()" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-xl transition-all">כן, התחל מחדש</button>
+          <button onclick="document.getElementById('confirmRestartModal').classList.add('hidden')" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-6 rounded-xl transition-all">ביטול</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game End Modal -->
+    <div id="gameEndModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full">
+        <div class="text-6xl mb-3">🏆</div>
+        <h3 class="text-2xl font-bold text-amber-700 mb-2">כל הכבוד!</h3>
+        <p class="text-amber-600 font-bold mb-3">חג פסח שמח! 🌾</p>
+        <div id="finalScores" class="mb-4 space-y-1"></div>
+        <button id="restartBtn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-xl text-lg transition-all hover:scale-105 shadow-md">
+          🎮 משחק חדש!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const allQuestions = [
+      { q: 'באיזה ספר בתנ"ך מופיע סיפור יציאת מצרים?', a: ['בראשית', 'שמות', 'ויקרא', 'במדבר'], correct: 1 },
+      { q: 'איזה מלך של מצרים מסרב לשחרר את בני ישראל בתחילת הסיפור?', a: ['פרעה', 'רעמסס', 'תחותמס', 'הורוס'], correct: 0 },
+      { q: 'כמה שנים לפי המסורת חיו בני ישראל במצרים?', a: ['200', '400', '430', '500'], correct: 2 },
+      { q: 'מי הייתה אחותו של משה ששמרה עליו כשהיה תינוק ביאור?', a: ['רבקה', 'מרים', 'דבורה', 'רחל'], correct: 1 },
+      { q: 'מה הייתה המכה הראשונה מבין עשר המכות?', a: ['חושך', 'דם', 'כינים', 'צפרדע'], correct: 1 },
+      { q: 'איזו מכה הפכה את הנהר והמים לדם?', a: ['המכה הראשונה', 'המכה השלישית', 'המכה החמישית', 'המכה השביעית'], correct: 0 },
+      { q: 'איזה מאכל בקערת הסדר מסמל את הטיט שבו עבדו בני ישראל במצרים?', a: ['כרפס', 'חרוסת', 'מרור', 'ביצה'], correct: 1 },
+      { q: 'איזה מאכל טובלים במי מלח בליל הסדר?', a: ['כרפס', 'מצה', 'ביצה', 'מרור'], correct: 0 },
+      { q: 'מה משמעות השם "פסח"?', a: ['חג האביב', 'מעבר של בני ישראל במדבר', 'דילוג על בתי בני ישראל במכת בכורות', 'חג החירות'], correct: 2 },
+      { q: 'איזו מכה הייתה האחרונה?', a: ['חושך', 'מכת בכורות', 'ארבה', 'שחין'], correct: 1 },
+      { q: 'איזה ים נחצה לפי הסיפור המקראי?', a: ['הים התיכון', 'ים סוף', 'ים כנרת', 'ים המלח'], correct: 1 },
+      { q: 'מהו האפיקומן?', a: ['כוס יין נוספת', 'חתיכת מצה שמחביאים בסוף הארוחה', 'מאכל מתוק', 'תפילה מיוחדת'], correct: 1 },
+      { q: 'כמה ימים נמשך חג הפסח בישראל?', a: ['6', '7', '8', '9'], correct: 1 },
+      { q: 'איזו מצווה מיוחדת קשורה לניקוי הבית לפני פסח?', a: ['הדלקת נרות', 'בדיקת חמץ', 'קריאת ההגדה', 'נטילת ידיים'], correct: 1 },
+      { q: 'איזה חג בתורה קשור גם הוא לאביב כמו פסח?', a: ['שבועות', 'חנוכה', 'פורים', 'ראש השנה'], correct: 0 },
+      { q: 'כמה כוסות יין שותים בליל הסדר?', a: ['2', '3', '4', '5'], correct: 2 },
+      { q: 'מי הוביל את בני ישראל ביציאת מצרים?', a: ['אברהם', 'יעקב', 'משה', 'יהושע'], correct: 2 },
+      { q: 'מה אכלו בני ישראל במדבר לפי המקרא?', a: ['לחם', 'מן', 'אורז', 'פירות'], correct: 1 },
+      { q: 'כמה מכות הביא ה\' על מצרים?', a: ['7', '8', '10', '12'], correct: 2 },
+      { q: 'מי היה אחיו של משה שדיבר בשמו אל פרעה?', a: ['יהושע', 'כלב', 'אהרון', 'נדב'], correct: 2 },
+      { q: 'למה אוכלים מצה בפסח?', a: ['כי זה טעים יותר', 'כי הבצק לא הספיק לתפוח', 'כי כך ציווה פרעה', 'כי לא היה קמח'], correct: 1 },
+      { q: 'באיזה חודש עברי חל חג הפסח?', a: ['תשרי', 'אדר', 'ניסן', 'סיוון'], correct: 2 },
+      { q: 'כמה ילדים (בנים) מוזכרים בהגדה של פסח?', a: ['שלושה', 'ארבעה', 'חמישה', 'שישה'], correct: 1 },
+      { q: 'מה הייתה המכה השנייה?', a: ['כינים', 'צפרדע', 'ערוב', 'שחין'], correct: 1 },
+      { q: 'איזה מאכל בקערת הסדר מסמל את קרבן הפסח?', a: ['ביצה', 'מרור', 'זרוע', 'חרוסת'], correct: 2 },
+      { q: 'מה פירוש המילה "הגדה"?', a: ['תפילה', 'סיפור', 'שירה', 'ברכה'], correct: 1 },
+      { q: 'באיזה יום בחודש ניסן חל ליל הסדר?', a: ['א\' ניסן', 'י\' ניסן', 'ט"ו ניסן', 'כ\' ניסן'], correct: 2 },
+      { q: 'מה הייתה המכה התשיעית?', a: ['ברד', 'ארבה', 'חושך', 'שחין'], correct: 2 },
+      { q: 'כמה שנים נדדו בני ישראל במדבר?', a: ['10', '20', '30', '40'], correct: 3 },
+      { q: 'מה שם ההר שבו קיבלו בני ישראל את התורה?', a: ['הר הכרמל', 'הר סיני', 'הר תבור', 'הר חרמון'], correct: 1 },
+      { q: 'מהי "מה נשתנה"?', a: ['שיר לסוף הסדר', 'ארבע שאלות שהילד הקטן שואל', 'ברכה על היין', 'תפילה לפני האוכל'], correct: 1 },
+      { q: 'מה הניחו בני ישראל על משקוף הדלת לפני מכת בכורות?', a: ['מזוזה', 'דם השה', 'שמן זית', 'מים קדושים'], correct: 1 },
+      { q: 'באיזו צורה הופיע ה\' לפני בני ישראל במדבר ביום?', a: ['עמוד אש', 'עמוד ענן', 'קשת בענן', 'כוכב נוגה'], correct: 1 },
+      { q: 'מה מסמלת הביצה בקערת הסדר?', a: ['את חיי העבדות', 'את קרבן החגיגה', 'את מכת הבכורות', 'את מעבר ים סוף'], correct: 1 },
+      { q: 'מי מצאה את משה התינוק ביאור?', a: ['אשת פרעה', 'בת פרעה', 'אחות פרעה', 'שפחת פרעה'], correct: 1 },
+      // --- שאלות קשות ---
+      { q: 'מה שמה של אמו של משה?', a: ['שרה', 'יוכבד', 'ציפורה', 'מרים'], correct: 1 },
+      { q: 'מה שמה של אשת משה?', a: ['דבורה', 'רחל', 'ציפורה', 'יוכבד'], correct: 2 },
+      { q: 'מי היה חותנו של משה?', a: ['נחשון', 'יתרו', 'בצלאל', 'אלדד'], correct: 1 },
+      { q: 'היכן הופיע ה\' למשה בתוך הסנה הבוער?', a: ['הר הכרמל', 'הר נבו', 'הר חורב', 'הר גרזים'], correct: 2 },
+      { q: 'מה שם המיילדות העבריות שסירבו להרוג את הבנים הנולדים?', a: ['מרים ודבורה', 'יוכבד ומרים', 'שפרה ופועה', 'דינה ורחל'], correct: 2 },
+      { q: 'כמה ימים נמשכה מכת החושך?', a: ['יום אחד', 'שלושה ימים', 'שבעה ימים', 'ארבעה עשר יום'], correct: 1 },
+      { q: 'מה הייתה המכה השישית?', a: ['ערוב', 'ברד', 'שחין', 'ארבה'], correct: 2 },
+      { q: 'מה הייתה המכה השביעית?', a: ['ארבה', 'שחין', 'חושך', 'ברד'], correct: 3 },
+      { q: 'מה הייתה המכה השמינית?', a: ['חושך', 'ברד', 'ארבה', 'שחין'], correct: 2 },
+      { q: 'מה עשה משה לפני שברח למדיין?', a: ['גנב מבית פרעה', 'הרג מצרי שהיכה עברי', 'ניסה לשכנע את פרעה', 'בנה מזבח לה\''], correct: 1 },
+      { q: 'מי ירש את משה בהנהגת העם לכניסה לארץ ישראל?', a: ['כלב בן יפונה', 'פינחס בן אלעזר', 'יהושע בן נון', 'אלעזר הכהן'], correct: 2 },
+      { q: 'מה שמו של בנו הבכור של משה?', a: ['אליעזר', 'גרשום', 'נדב', 'אביהוא'], correct: 1 },
+      { q: 'מאיזה שבט היה משה?', a: ['שבט יהודה', 'שבט ראובן', 'שבט בנימין', 'שבט לוי'], correct: 3 },
+      { q: 'מה היה מקצועו של משה לפני שחזר למצרים?', a: ['חקלאי', 'נגר', 'רועה צאן', 'כהן'], correct: 2 },
+      { q: 'מה שם הנהר שפרעה ציווה להשליך אליו את הבנים העבריים?', a: ['הירדן', 'הפרת', 'היאור', 'הגיחון'], correct: 2 },
+      { q: 'על איזה הר מת משה לפני הכניסה לארץ?', a: ['הר סיני', 'הר עיבל', 'הר חרמון', 'הר נבו'], correct: 3 },
+      { q: 'מה הייתה המכה הרביעית?', a: ['כינים', 'שחין', 'ערוב', 'דבר'], correct: 2 },
+      { q: 'מה הייתה המכה החמישית?', a: ['ערוב', 'דבר', 'שחין', 'ברד'], correct: 1 }
+    ];
+
+    const pesachEmojis = [
+      '🌾','✡️','🕎','📜','🍷','🫓','🌙','⭐','🌊','🏛️','🐑','🔥',
+      '🌿','🕊️','🏜️','👑','🪔','📖','🍇','🐪','⛰️','🌅','🪶','🏺',
+      '🫒','🌴','🐟','🎶','🧱','🪨','🌻','🐚','💎','🦅','🪷','🌈',
+      '🐸','🦗','💧','🩸','❄️','🌿','🫙','🗡️','🌟','📯','🎺','🛕',
+      '🏔️','🌄','🐄','🐝','🦟','🌑','🐍','🌪️','🏹','🌿','🦁','🕯️',
+      '🎭','🌺','🦋','🍯'
+    ];
+
+    const PLAYER_COLORS = ['red','blue','green','yellow','purple','orange'];
+    const PLAYER_BG = { red:'bg-red-500', blue:'bg-blue-500', green:'bg-green-500', yellow:'bg-yellow-400', purple:'bg-purple-500', orange:'bg-orange-500' };
+    const PLAYER_HEX = { red:'#ef4444', blue:'#3b82f6', green:'#22c55e', yellow:'#facc15', purple:'#a855f7', orange:'#f97316' };
+
+    let players = [];
+    let currentPlayerIndex = 0;
+    let currentCardIndex = null;
+    let cardColors = new Array(36).fill(null);
+    let answeredCards = new Array(36).fill(false);
+    const extendedQuestions = [];
+
+    let pendingPlayers = [];
+
+    function addPlayer() {
+      const input = document.getElementById('newPlayerName');
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      if (pendingPlayers.length >= 6) return;
+      const color = PLAYER_COLORS[pendingPlayers.length];
+      pendingPlayers.push({ name, color, score: 0 });
+      input.value = '';
+      input.focus();
+      renderPendingPlayers();
+    }
+
+    function removePendingPlayer(i) {
+      pendingPlayers.splice(i, 1);
+      pendingPlayers = pendingPlayers.map((p, idx) => ({ ...p, color: PLAYER_COLORS[idx] }));
+      renderPendingPlayers();
+    }
+
+    function renderPendingPlayers() {
+      const list = document.getElementById('playersList');
+      list.innerHTML = pendingPlayers.map((p, i) => `
+        <div class="flex items-center gap-2 px-3 py-2 rounded-xl text-white font-bold" style="background:${PLAYER_HEX[p.color]}">
+          <span class="flex-1">${p.name}</span>
+          <button onclick="removePendingPlayer(${i})" class="text-white/70 hover:text-white text-lg leading-none">✕</button>
+        </div>`).join('');
+      document.getElementById('startBtn').classList.toggle('hidden', pendingPlayers.length === 0);
+    }
+
+    function startGame() {
+      if (!pendingPlayers.length) return;
+      players = pendingPlayers.map(p => ({ ...p }));
+      pendingPlayers = [];
+      currentPlayerIndex = 0;
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('turnBar').classList.remove('hidden');
+      document.getElementById('scoreboard').classList.remove('hidden');
+      initGame();
+      updateTurnBar();
+      updateScoreboard();
+    }
+
+    function pickRotatingQuestions() {
+      let usedIndices = [];
+      try { usedIndices = JSON.parse(localStorage.getItem('pesachStrategicUsed') || '[]'); } catch(e) {}
+      const total = allQuestions.length;
+      const unused = shuffleArray([...Array(total).keys()].filter(i => !usedIndices.includes(i)));
+      const fallback = shuffleArray(usedIndices);
+      const pool = [...unused, ...fallback];
+      const chosen = pool.slice(0, 36);
+      const newUsed = [...usedIndices, ...chosen].slice(-Math.min(total - 36, total));
+      try { localStorage.setItem('pesachStrategicUsed', JSON.stringify(newUsed)); } catch(e) {}
+      return chosen.map(i => allQuestions[i]);
+    }
+
+    function initGame() {
+      if (!loadGame()) {
+        extendedQuestions.length = 0;
+        pickRotatingQuestions().forEach(q => extendedQuestions.push(q));
+      }
+      document.getElementById('midGameRestartBtn').classList.remove('hidden');
+      createCards();
+    }
+
+    function confirmRestart() {
+      document.getElementById('confirmRestartModal').classList.remove('hidden');
+    }
+
+    function doRestart() {
+      document.getElementById('confirmRestartModal').classList.add('hidden');
+      document.getElementById('gameEndModal').classList.add('hidden');
+      document.getElementById('winModal').classList.add('hidden');
+      document.getElementById('turnBar').classList.add('hidden');
+      document.getElementById('scoreboard').classList.add('hidden');
+      document.getElementById('midGameRestartBtn').classList.add('hidden');
+      cardColors = new Array(36).fill(null);
+      answeredCards = new Array(36).fill(false);
+      players = []; pendingPlayers = []; currentPlayerIndex = 0;
+      localStorage.removeItem('pesachStrategicGame');
+      document.getElementById('playersList').innerHTML = '';
+      document.getElementById('startBtn').classList.add('hidden');
+      document.getElementById('newPlayerName').value = '';
+      document.getElementById('setupScreen').classList.remove('hidden');
+    }
+
+    function shuffleArray(array) {
+      const s = [...array];
+      for (let i = s.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [s[i], s[j]] = [s[j], s[i]];
+      }
+      return s;
+    }
+
+    function updateTurnBar() {
+      if (!players.length) return;
+      const p = players[currentPlayerIndex];
+      const bar = document.getElementById('turnBar');
+      bar.style.background = PLAYER_HEX[p.color];
+      bar.textContent = `🎯 תור ${p.name}`;
+    }
+
+    function updateScoreboard() {
+      if (!players.length) return;
+      const sb = document.getElementById('scoreboard');
+      sb.innerHTML = players.map((p,i) => `
+        <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-sm font-bold shadow ${i===currentPlayerIndex?'ring-4 ring-white/70 scale-105':''}" style="background:${PLAYER_HEX[p.color]}">
+          <span>${p.name}</span>
+          <span class="bg-white/30 rounded-full px-2">${p.score}</span>
+        </div>`).join('');
+    }
+
+    function createCards() {
+      const grid = document.getElementById('gameGrid');
+      grid.innerHTML = '';
+      for (let i = 0; i < 36; i++) {
+        const card = document.createElement('div');
+        card.className = 'card aspect-square';
+        card.dataset.index = i;
+        const bgColor = cardColors[i] ? PLAYER_BG[cardColors[i]] : 'bg-white';
+        const emoji = pesachEmojis[i % pesachEmojis.length];
+        card.innerHTML = `
+          <div class="card-inner w-full h-full relative">
+            <div class="card-front absolute inset-0 ${bgColor} rounded-lg shadow-md border-2 border-amber-300 flex flex-col items-center justify-center gap-0.5">
+              <span class="${cardColors[i]?'text-xs':'text-base'} font-bold ${cardColors[i]?'text-white':'text-amber-600'} leading-none">${i+1}</span>
+              <span class="text-xl">${cardColors[i] ? emoji : ''}</span>
+            </div>
+            <div class="card-back absolute inset-0 bg-amber-50 rounded-lg shadow-md border-2 border-amber-400 flex flex-col items-center justify-center gap-0.5">
+              <span class="text-xs font-bold text-amber-700 leading-none">${i+1}</span>
+              <span class="text-xl">${emoji}</span>
+            </div>
+          </div>`;
+        if (!answeredCards[i]) card.addEventListener('click', () => openQuestion(i));
+        else card.style.cursor = 'default';
+        grid.appendChild(card);
+      }
+    }
+
+    function openQuestion(index) {
+      if (answeredCards[index]) return;
+      currentCardIndex = index;
+      const question = extendedQuestions[index];
+      const p = players[currentPlayerIndex];
+
+      const badge = document.getElementById('questionPlayerBadge');
+      badge.innerHTML = `<span class="inline-block px-4 py-1 rounded-full text-white text-sm font-bold" style="background:${PLAYER_HEX[p.color]}">🎯 ${p.name}</span>`;
+
+      document.getElementById('questionEmoji').textContent = pesachEmojis[index % pesachEmojis.length];
+      document.getElementById('questionText').textContent = question.q;
+
+      const answersContainer = document.getElementById('answersContainer');
+      answersContainer.innerHTML = '';
+      const labels = ['א','ב','ג','ד'];
+      question.a.forEach((answer, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'w-full p-3 text-right rounded-xl border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 transition-all flex items-center gap-3';
+        btn.innerHTML = `<span class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center font-bold text-amber-700 flex-shrink-0">${labels[i]}</span><span class="text-gray-700">${answer}</span>`;
+        btn.addEventListener('click', () => checkAnswer(i));
+        answersContainer.appendChild(btn);
+      });
+      document.getElementById('questionModal').classList.remove('hidden');
+    }
+
+    function checkAnswer(answerIndex) {
+      const question = extendedQuestions[currentCardIndex];
+      document.getElementById('questionModal').classList.add('hidden');
+      if (answerIndex === question.correct) showCorrectFeedback();
+      else showWrongFeedback();
+    }
+
+    function showCorrectFeedback() {
+      const p = players[currentPlayerIndex];
+      cardColors[currentCardIndex] = p.color;
+      answeredCards[currentCardIndex] = true;
+      p.score++;
+
+      const modal = document.getElementById('correctModal');
+      document.getElementById('correctPlayerName').style.color = PLAYER_HEX[p.color];
+      document.getElementById('correctPlayerName').textContent = `🏅 ${p.name}`;
+      modal.classList.remove('hidden');
+
+      const card = document.querySelector(`[data-index="${currentCardIndex}"]`);
+      if (card) card.classList.add('pulse');
+
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        saveGame();
+        const justPlayed = players[currentPlayerIndex];
+        advanceTurn();
+        createCards();
+        updateTurnBar();
+        updateScoreboard();
+        checkGameEnd(justPlayed);
+        currentCardIndex = null;
+      }, 1800);
+    }
+
+    function showWrongFeedback() {
+      const feedback = document.getElementById('wrongFeedback');
+      feedback.classList.remove('hidden');
+      const card = document.querySelector(`[data-index="${currentCardIndex}"]`);
+      if (card) card.classList.add('shake');
+
+      const nextIdx = (currentPlayerIndex + 1) % players.length;
+      document.getElementById('nextPlayerMsg').textContent = `עכשיו תור ${players[nextIdx].name}`;
+
+      setTimeout(() => {
+        feedback.classList.add('hidden');
+        if (card) card.classList.remove('shake');
+        advanceTurn();
+        updateTurnBar();
+        updateScoreboard();
+        currentCardIndex = null;
+      }, 1800);
+    }
+
+    function advanceTurn() {
+      currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+    }
+
+    // בדיקת ניצחון — BFS עם חיבורי אלכסון
+    function checkWin(color) {
+      const COLS = 6, ROWS = 6;
+      const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+      function idx(r,c) { return r*COLS+c; }
+      function owned(r,c) { return r>=0&&r<ROWS&&c>=0&&c<COLS&&cardColors[idx(r,c)]===color; }
+
+      // רצף אנכי (שורה 0 → שורה 5)
+      const visitedV = new Set();
+      const queueV = [];
+      for (let c=0;c<COLS;c++) if (owned(0,c)) { queueV.push([0,c]); visitedV.add(idx(0,c)); }
+      while (queueV.length) {
+        const [r,c] = queueV.shift();
+        if (r===ROWS-1) return { win:true, axis:'vertical', path:[...visitedV] };
+        for (const [dr,dc] of dirs) {
+          const nr=r+dr, nc=c+dc;
+          if (owned(nr,nc)&&!visitedV.has(idx(nr,nc))) { visitedV.add(idx(nr,nc)); queueV.push([nr,nc]); }
+        }
+      }
+
+      // רצף אופקי (עמודה 0 → עמודה 5)
+      const visitedH = new Set();
+      const queueH = [];
+      for (let r=0;r<ROWS;r++) if (owned(r,0)) { queueH.push([r,0]); visitedH.add(idx(r,0)); }
+      while (queueH.length) {
+        const [r,c] = queueH.shift();
+        if (c===COLS-1) return { win:true, axis:'horizontal', path:[...visitedH] };
+        for (const [dr,dc] of dirs) {
+          const nr=r+dr, nc=c+dc;
+          if (owned(nr,nc)&&!visitedH.has(idx(nr,nc))) { visitedH.add(idx(nr,nc)); queueH.push([nr,nc]); }
+        }
+      }
+      return { win:false };
+    }
+
+    function highlightWinPath(indices, color) {
+      indices.forEach(i => {
+        const card = document.querySelector(`[data-index="${i}"]`);
+        if (card) {
+          card.style.transform = 'scale(1.15)';
+          card.style.zIndex = '10';
+          card.style.boxShadow = `0 0 18px 6px ${PLAYER_HEX[color]}`;
+          card.style.transition = 'all 0.4s ease';
+        }
+      });
+    }
+
+    function checkGameEnd(winnerPlayer) {
+      if (winnerPlayer) {
+        const result = checkWin(winnerPlayer.color);
+        if (result.win) {
+          setTimeout(() => {
+            highlightWinPath(result.path, winnerPlayer.color);
+            setTimeout(() => showWinModal(winnerPlayer), 700);
+          }, 200);
+          return;
+        }
+      }
+      if (answeredCards.every(Boolean)) {
+        setTimeout(() => {
+          const sorted = [...players].sort((a,b) => b.score - a.score);
+          document.getElementById('finalScores').innerHTML =
+            sorted.map((p,i) => `<div class="flex items-center justify-between px-4 py-2 rounded-xl text-white font-bold" style="background:${PLAYER_HEX[p.color]}">
+              <span>${i===0?'🥇':i===1?'🥈':'🥉'} ${p.name}</span>
+              <span>${p.score} קלפים</span>
+            </div>`).join('');
+          document.getElementById('gameEndModal').classList.remove('hidden');
+        }, 400);
+      }
+    }
+
+    function showWinModal(p) {
+      document.getElementById('winTitle').textContent = 'אלוף! 🎉';
+      document.getElementById('winTitle').style.color = PLAYER_HEX[p.color];
+      document.getElementById('winName').textContent = `🏆 ${p.name} ניצח!`;
+      document.getElementById('winName').style.color = PLAYER_HEX[p.color];
+      document.getElementById('winModal').classList.remove('hidden');
+    }
+
+    function saveGame() {
+      try {
+        localStorage.setItem('pesachStrategicGame', JSON.stringify({
+          cardColors, answeredCards,
+          questionOrder: extendedQuestions.map(q => allQuestions.indexOf(q)),
+          players, currentPlayerIndex
+        }));
+      } catch(e) {}
+    }
+
+    function loadGame() {
+      try {
+        const saved = localStorage.getItem('pesachStrategicGame');
+        if (!saved) return false;
+        const data = JSON.parse(saved);
+        if (data.cardColors && data.answeredCards && data.questionOrder) {
+          cardColors = data.cardColors;
+          answeredCards = data.answeredCards;
+          extendedQuestions.length = 0;
+          data.questionOrder.forEach(idx => extendedQuestions.push(allQuestions[idx] || allQuestions[0]));
+          if (data.players) { players = data.players; currentPlayerIndex = data.currentPlayerIndex || 0; }
+          return true;
+        }
+      } catch(e) {}
+      return false;
+    }
+
+    document.getElementById('restartBtn').addEventListener('click', doRestart);
+    document.getElementById('closeModal').addEventListener('click', () => {
+      document.getElementById('questionModal').classList.add('hidden');
+      currentCardIndex = null;
+    });
+
+    // בדיקת משחק שמור
+    (function() {
+      try {
+        const saved = localStorage.getItem('pesachStrategicGame');
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.players && data.players.length) {
+            players = data.players;
+            currentPlayerIndex = data.currentPlayerIndex || 0;
+            cardColors = data.cardColors;
+            answeredCards = data.answeredCards;
+            extendedQuestions.length = 0;
+            data.questionOrder.forEach(idx => extendedQuestions.push(allQuestions[idx] || allQuestions[0]));
+            document.getElementById('setupScreen').classList.add('hidden');
+            document.getElementById('turnBar').classList.remove('hidden');
+            document.getElementById('scoreboard').classList.remove('hidden');
+            document.getElementById('midGameRestartBtn').classList.remove('hidden');
+            createCards();
+            updateTurnBar();
+            updateScoreboard();
+            return;
+          }
+        }
+      } catch(e) {}
+    })();
+  </script>
+</body>
+</html>
